@@ -1,6 +1,6 @@
 import { useCustom, useCustomMutation } from '@refinedev/core';
 import { List, DateField, BooleanField } from '@refinedev/antd';
-import { Button, Popconfirm, Space, Table, Tag, Typography } from 'antd';
+import { Button, message, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import { StopOutlined } from '@ant-design/icons';
 import { API_URL } from '../../providers/constants';
 
@@ -40,6 +40,9 @@ export const ReportList = () => {
       {
         onSuccess: () => {
           void query.refetch();
+        },
+        onError: () => {
+          void message.error('비활성화 처리에 실패했습니다. 다시 시도해 주세요.');
         },
       },
     );

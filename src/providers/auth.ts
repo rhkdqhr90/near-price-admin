@@ -83,6 +83,9 @@ export const authProvider: AuthProvider = {
     if (error?.status === 401) {
       return { logout: true, redirectTo: "/login", error };
     }
+    if (error?.status === 403) {
+      return { redirectTo: "/login", error };
+    }
     return { error };
   },
 };

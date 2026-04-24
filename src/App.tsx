@@ -29,6 +29,7 @@ import { NoticeEdit } from "./pages/notices/edit";
 import { NoticeList } from "./pages/notices/list";
 import { NoticeShow } from "./pages/notices/show";
 import { InquiryList } from "./pages/inquiries/list";
+import { OwnerApplicationList } from "./pages/owners/list";
 import { authProvider } from "./providers/auth";
 import { dataProvider } from "./providers/data";
 
@@ -71,6 +72,11 @@ function App() {
                     list: "/inquiry",
                     meta: { label: "문의 관리" },
                   },
+                  {
+                    name: "owner",
+                    list: "/owner",
+                    meta: { label: "사장 신청 관리" },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -112,6 +118,9 @@ function App() {
                     </Route>
                     <Route path="/inquiry">
                       <Route index element={<InquiryList />} />
+                    </Route>
+                    <Route path="/owner">
+                      <Route index element={<OwnerApplicationList />} />
                     </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>

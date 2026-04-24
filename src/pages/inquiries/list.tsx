@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCustom, useCustomMutation } from "@refinedev/core";
+import { useCustom } from "@refinedev/core";
 import { DateField, List } from "@refinedev/antd";
 import {
   Button,
@@ -12,6 +12,7 @@ import {
   message,
 } from "antd";
 import { API_URL } from "../../providers/constants";
+import { TOKEN_KEY } from "../../providers/constants";
 
 type InquiryStatus = "pending" | "answered" | "closed";
 
@@ -38,13 +39,12 @@ export const InquiryList = () => {
     null,
   );
   const [replyText, setReplyText] = useState("");
+  const [isSavingReply, setIsSavingReply] = useState(false);
 
   const { query } = useCustom<InquiryItem[]>({
     url: `${API_URL}/inquiry/admin`,
     method: "get",
   });
-
-  const { mutate: replyInquiry, mutation } = useCustomMutation();
 
   const openReplyModal = (inquiry: InquiryItem) => {
     setSelectedInquiry(inquiry);
@@ -56,7 +56,7 @@ export const InquiryList = () => {
     setReplyText("");
   };
 
-  const handleSubmitReply = () => {
+  const handleSubmitReply = async () => {
     if (!selectedInquiry) {
       return;
     }
@@ -67,23 +67,35 @@ export const InquiryList = () => {
       return;
     }
 
-    replyInquiry(
-      {
-        url: `${API_URL}/inquiry/${selectedInquiry.id}/reply`,
-        method: "patch",
-        values: { adminReply: trimmedReply },
-      },
-      {
-        onSuccess: async () => {
-          await query.refetch();
-          closeReplyModal();
-          void messageApi.success("문의 답변이 저장되었습니다.");
+    try {
+      setIsSavingReply(true);
+
+      const token = localStorage.getItem(TOKEN_KEY);
+      const response = await fetch(`${API_URL}/inquiry/${selectedInquiry.id}/reply`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        onError: () => {
-          void messageApi.error("답변 저장에 실패했습니다. 다시 시도해주세요.");
-        },
-      },
-    );
+        body: JSON.stringify({ adminReply: trimmedReply }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP_${response.status}`);
+      }
+
+      await query.refetch();
+      closeReplyModal();
+      void messageApi.success("문의 답변이 저장되었습니다.");
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : "";
+      const statusCode = rawMessage.startsWith("HTTP_")
+        ? rawMessage.replace("HTTP_", "")
+        : "알 수 없음";
+      void messageApi.error(`답변 저장에 실패했습니다. (status: ${statusCode})`);
+    } finally {
+      setIsSavingReply(false);
+    }
   };
 
   const inquiries = query.data?.data ?? [];
@@ -168,7 +180,7 @@ export const InquiryList = () => {
         cancelText="취소"
         onCancel={closeReplyModal}
         onOk={handleSubmitReply}
-        confirmLoading={mutation.isPending}
+        confirmLoading={isSavingReply}
         destroyOnClose
       >
         <Space direction="vertical" size={8} style={{ width: "100%" }}>

@@ -28,6 +28,7 @@ import { NoticeCreate } from "./pages/notices/create";
 import { NoticeEdit } from "./pages/notices/edit";
 import { NoticeList } from "./pages/notices/list";
 import { NoticeShow } from "./pages/notices/show";
+import { InquiryList } from "./pages/inquiries/list";
 import { authProvider } from "./providers/auth";
 import { dataProvider } from "./providers/data";
 
@@ -64,6 +65,11 @@ function App() {
                     name: "reports",
                     list: "/reports",
                     meta: { label: "신고 관리" },
+                  },
+                  {
+                    name: "inquiry",
+                    list: "/inquiry",
+                    meta: { label: "문의 관리" },
                   },
                 ]}
                 options={{
@@ -103,6 +109,9 @@ function App() {
                     </Route>
                     <Route path="/reports">
                       <Route index element={<ReportList />} />
+                    </Route>
+                    <Route path="/inquiry">
+                      <Route index element={<InquiryList />} />
                     </Route>
                     <Route path="*" element={<ErrorComponent />} />
                   </Route>

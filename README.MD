@@ -35,6 +35,19 @@ Refine's hooks and components simplifies the development process and eliminates 
     npm run start
 ```
 
+## Vercel Deployment
+
+1. Import this repository into Vercel.
+2. Set the build settings:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+3. Add environment variable:
+   - `VITE_API_URL=https://<near-price-api-domain>`
+4. Add your admin site origin to API `CORS_ORIGIN` in production.
+
+This project includes `vercel.json` rewrite rules so React Router paths
+like `/faq`, `/notice`, and `/inquiry` open correctly on refresh.
+
 ## Learn More
 
 To learn more about **Refine**, please check out the [Documentation](https://refine.dev/docs)

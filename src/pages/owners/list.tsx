@@ -1,9 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useCustom } from '@refinedev/core';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DateField, List } from '@refinedev/antd';
 import {
   Button,
-  Image,
   Input,
   Modal,
   Space,
@@ -13,6 +11,33 @@ import {
   message,
 } from 'antd';
 import { API_URL, TOKEN_KEY } from '../../providers/constants';
+
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '10.0.2.2']);
+
+const trimLeadingSlash = (value: string): string => value.replace(/^\/+/, '');
+
+const resolveProofImageUrl = (raw: string): string => {
+  const value = raw.trim();
+  if (!value) {
+    return value;
+  }
+
+  if (!/^https?:\/\//i.test(value)) {
+    return `${API_URL}/${trimLeadingSlash(value)}`;
+  }
+
+  try {
+    const proofUrl = new URL(value);
+    const apiUrl = new URL(API_URL);
+    if (!LOCAL_HOSTNAMES.has(proofUrl.hostname)) {
+      return value;
+    }
+
+    return `${apiUrl.origin}${proofUrl.pathname}${proofUrl.search}${proofUrl.hash}`;
+  } catch {
+    return value;
+  }
+};
 
 type OwnerApplicationStatus = 'pending' | 'approved' | 'rejected';
 
@@ -57,15 +82,11 @@ export const OwnerApplicationList = () => {
     useState<OwnerApplicationDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [list, setList] = useState<OwnerApplicationListItem[]>([]);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-
-  const { query } = useCustom<OwnerApplicationListItem[]>({
-    url: `${API_URL}/owner/admin`,
-    method: 'get',
-  });
-
-  const list = query.data?.data ?? [];
+  const [isProofImageBroken, setIsProofImageBroken] = useState(false);
 
   const withToken = useCallback((): HeadersInit => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -75,9 +96,33 @@ export const OwnerApplicationList = () => {
     };
   }, []);
 
+  const loadList = useCallback(async () => {
+    try {
+      setIsListLoading(true);
+      const response = await fetch(`${API_URL}/owner/admin`, {
+        method: 'GET',
+        headers: withToken(),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP_${response.status}`);
+      }
+      const data = (await response.json()) as OwnerApplicationListItem[];
+      setList(data);
+    } catch {
+      setList([]);
+      void messageApi.error('사장 신청 목록을 불러오지 못했습니다.');
+    } finally {
+      setIsListLoading(false);
+    }
+  }, [messageApi, withToken]);
+
   const refetchList = useCallback(async () => {
-    await query.refetch();
-  }, [query]);
+    await loadList();
+  }, [loadList]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
   const handleOpenDetail = useCallback(
     async (id: string) => {
@@ -92,6 +137,7 @@ export const OwnerApplicationList = () => {
         }
         const data = (await response.json()) as OwnerApplicationDetail;
         setSelectedDetail(data);
+        setIsProofImageBroken(false);
       } catch {
         void messageApi.error('상세 정보를 불러오지 못했습니다.');
       } finally {
@@ -189,7 +235,7 @@ export const OwnerApplicationList = () => {
         <Table<OwnerApplicationListItem>
           dataSource={list}
           rowKey="id"
-          loading={query.isLoading}
+          loading={isListLoading}
           pagination={{ pageSize: 20 }}
         >
           <Table.Column<OwnerApplicationListItem>
@@ -303,11 +349,34 @@ export const OwnerApplicationList = () => {
             <Typography.Text>
               <strong>증빙이미지:</strong>
             </Typography.Text>
-            <Image
-              src={selectedDetail.proofImageUrl}
-              alt="증빙이미지"
-              style={{ borderRadius: 8 }}
-            />
+            {isProofImageBroken ? (
+              <Space direction="vertical" size={4}>
+                <Typography.Text type="danger">
+                  이미지를 불러오지 못했습니다.
+                </Typography.Text>
+              </Space>
+            ) : (
+              <img
+                src={resolveProofImageUrl(selectedDetail.proofImageUrl)}
+                alt="증빙이미지"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  maxWidth: 460,
+                  borderRadius: 8,
+                  objectFit: 'cover',
+                }}
+                onError={() => {
+                  setIsProofImageBroken(true);
+                }}
+              />
+            )}
+            <Typography.Link
+              href={resolveProofImageUrl(selectedDetail.proofImageUrl)}
+              target="_blank"
+            >
+              원본 이미지 열기
+            </Typography.Link>
             {selectedDetail.rejectionReason ? (
               <Typography.Text type="danger">
                 <strong>반려 사유:</strong> {selectedDetail.rejectionReason}

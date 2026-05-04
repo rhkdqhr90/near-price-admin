@@ -1,7 +1,13 @@
 import type { AuthProvider } from "@refinedev/core";
 import { API_URL, TOKEN_KEY } from "./constants";
+import { tokenStorage } from "./storage";
 
 const USER_KEY = "refine-user";
+
+const clearSession = () => {
+  tokenStorage.remove(TOKEN_KEY);
+  tokenStorage.remove(USER_KEY);
+};
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
@@ -23,8 +29,8 @@ export const authProvider: AuthProvider = {
       }
 
       const data = await response.json();
-      localStorage.setItem(TOKEN_KEY, data.accessToken ?? data.access_token);
-      localStorage.setItem(USER_KEY, JSON.stringify(data.user ?? { email }));
+      tokenStorage.set(TOKEN_KEY, data.accessToken ?? data.access_token);
+      tokenStorage.set(USER_KEY, JSON.stringify(data.user ?? { email }));
 
       return { success: true, redirectTo: "/" };
     } catch {
@@ -39,24 +45,43 @@ export const authProvider: AuthProvider = {
   },
 
   logout: async () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    clearSession();
     return { success: true, redirectTo: "/login" };
   },
 
   check: async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = tokenStorage.get(TOKEN_KEY);
     if (!token) return { authenticated: false, redirectTo: "/login" };
 
+    // 1차: 클라이언트 측 만료 검사 (네트워크 호출 절감용 빠른 사전 차단)
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       if (payload.exp && payload.exp * 1000 < Date.now()) {
-        localStorage.removeItem(TOKEN_KEY);
+        clearSession();
         return { authenticated: false, redirectTo: "/login" };
       }
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
+      clearSession();
       return { authenticated: false, redirectTo: "/login" };
+    }
+
+    // 2차: 백엔드에 실제 서명 검증 위임 (위조 토큰 차단)
+    try {
+      const response = await fetch(`${API_URL}/user/me`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.status === 401 || response.status === 403) {
+        clearSession();
+        return { authenticated: false, redirectTo: "/login" };
+      }
+      if (!response.ok) {
+        // 네트워크/서버 일시 오류는 인증 상태를 유지(스파이크 시 무한 로그아웃 방지)
+        return { authenticated: true };
+      }
+    } catch {
+      // 오프라인/네트워크 단절 시에도 기존 세션을 즉시 끊지 않음
+      return { authenticated: true };
     }
 
     return { authenticated: true };
@@ -65,10 +90,10 @@ export const authProvider: AuthProvider = {
   getPermissions: async () => null,
 
   getIdentity: async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = tokenStorage.get(TOKEN_KEY);
     if (!token) return null;
 
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = tokenStorage.get(USER_KEY);
     if (raw) {
       try {
         return JSON.parse(raw);

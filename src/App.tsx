@@ -32,8 +32,10 @@ import { InquiryList } from "./pages/inquiries/list";
 import { OwnerApplicationList } from "./pages/owners/list";
 import { authProvider } from "./providers/auth";
 import { dataProvider } from "./providers/data";
+import { useIdleLogout } from "./hooks/useIdleLogout";
 
 function App() {
+  useIdleLogout();
   return (
     <BrowserRouter>
       <RefineKbarProvider>

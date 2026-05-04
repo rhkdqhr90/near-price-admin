@@ -1,7 +1,7 @@
-import { authHeaderBeforeRequestHook } from "@refinedev/rest";
 import { createSimpleRestDataProvider } from "@refinedev/rest/simple-rest";
 import type { DataProvider } from "@refinedev/core";
 import { API_URL, TOKEN_KEY } from "./constants";
+import { tokenStorage } from "./storage";
 
 const { dataProvider: baseProvider, kyInstance } =
   createSimpleRestDataProvider({
@@ -9,7 +9,12 @@ const { dataProvider: baseProvider, kyInstance } =
     kyOptions: {
       hooks: {
         beforeRequest: [
-          authHeaderBeforeRequestHook({ ACCESS_TOKEN_KEY: TOKEN_KEY }),
+          (request) => {
+            const token = tokenStorage.get(TOKEN_KEY);
+            if (token) {
+              request.headers.set("Authorization", `Bearer ${token}`);
+            }
+          },
         ],
       },
     },

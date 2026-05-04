@@ -11,8 +11,8 @@ import {
   Typography,
   message,
 } from "antd";
-import { API_URL } from "../../providers/constants";
-import { TOKEN_KEY } from "../../providers/constants";
+import { API_URL, TOKEN_KEY } from "../../providers/constants";
+import { tokenStorage } from "../../providers/storage";
 
 type InquiryStatus = "pending" | "answered" | "closed";
 
@@ -70,7 +70,7 @@ export const InquiryList = () => {
     try {
       setIsSavingReply(true);
 
-      const token = localStorage.getItem(TOKEN_KEY);
+      const token = tokenStorage.get(TOKEN_KEY);
       const response = await fetch(`${API_URL}/inquiry/${selectedInquiry.id}/reply`, {
         method: "PATCH",
         headers: {
